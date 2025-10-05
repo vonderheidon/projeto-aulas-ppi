@@ -1,0 +1,27 @@
+customer-api: lb://ms-customer:8081
+product-api: lb://ms-product:8082
+customer-service: lb://customer-service:8083
+
+server:
+  port:8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: customer
+              uri: ${customer-api}
+              predicates:
+                - Path=/api/v1/customer/findById/{id}
+                - Method=GET
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}

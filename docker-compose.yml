@@ -1,0 +1,123 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - backend
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-db:
+    image: postgres:16
+    container_name: postgres-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - backend
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8761/actuator/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  ms-customer:
+    build: ./ms-customer
+    container_name: ms-customer
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_MS_CUSTOMER_URL=jdbc:postgresql://postgres-db:5432/ms_customer_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=12345678
+      - RABBITMQ_SERVICE_PORT=5672
+      - RABBITMQ_SERVICE_USERNAME=guest
+      - RABBITMQ_SERVICE_PASSWORD=guest
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    networks:
+      - backend
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  ms-product:
+    build: ./ms-product
+    container_name: ms-product
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_MS_PRODUCT_URL=jdbc:postgresql://postgres-db:5432/ms_product_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=12345678
+      - RABBITMQ_SERVICE_PORT=5672
+      - RABBITMQ_SERVICE_USERNAME=guest
+      - RABBITMQ_SERVICE_PASSWORD=guest
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    networks:
+      - backend
+    depends_on:
+      - eureka-server
+      - postgres-db
+
+  customer-service:
+    build: ./customer-service
+    container_name: customer-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_CUSTOMER_SERVICE_URL=jdbc:postgresql://postgres-db:5432/customer_service_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=12345678
+      - RABBITMQ_SERVICE_PORT=5672
+      - RABBITMQ_SERVICE_USERNAME=guest
+      - RABBITMQ_SERVICE_PASSWORD=guest
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    networks:
+      - backend
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    networks:
+      - backend
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  rabbitmq_data:
