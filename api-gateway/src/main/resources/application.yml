@@ -18,6 +18,11 @@ spring:
               predicates:
                 - Path=/api/v1/customer/findById/{id}
                 - Method=GET
+  security:
+    oauth2:
+      resource server:
+        jwt:
+          jwk-set-uri: http://localhost:9000/realms/pet-shop/protocol/openid-connect/certs
 
 eureka:
   client:
