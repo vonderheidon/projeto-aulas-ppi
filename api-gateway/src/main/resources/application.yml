@@ -18,11 +18,16 @@ spring:
               predicates:
                 - Path=/api/v1/customer/findById/{id}
                 - Method=GET
+            - id: create-customer
+              uri: ${customer-api}
+              predicates:
+                - Path=/api/v1/customer/create
+                - Method=POST
   security:
     oauth2:
-      resource server:
+      resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:9000/realms/pet-shop/protocol/openid-connect/certs
+          jwk-set-uri: http://keycloak:8080/realms/pet-shop/protocol/openid-connect/certs
 
 eureka:
   client:
